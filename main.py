@@ -1,25 +1,30 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+
+from fontTools.misc.cython import returns
+from matplotlib import colors
+from numpy.ma.extras import median
 
 #===========================
 #POCETNI PARAMETRI ZA TRADE
 #===========================
 
-start_capital = 100
-winrate = 0.40
+start_capital = 30
+winrate = 0.4
 lavrage = 0.25
 wp = (0.4 * lavrage, 0.95 * lavrage)
 lp = (0.2 * lavrage, 0.5 * lavrage)
-risk_precent = 0.1
-trade = 10
+risk_precent = 0.15
+trade = 20
 fee_rate = 0.0005
-br_day = 30
-br_trade_day = 5
+br_day = 90
+br_trade_day = 10
 br_trade = br_trade_day * br_day
 
 pos_size = trade * lavrage
 
-def simulate(start_capital, winrate, lavrage, trade, pos_size, br_trade):
+def simulate(start_capital):
     win_cnt = 0
     loss_cnt = 0
     win_streak = 0
@@ -31,6 +36,7 @@ def simulate(start_capital, winrate, lavrage, trade, pos_size, br_trade):
     red = 0
 
     daily_pnls = []
+    equity_curve = [start_capital]
 
     i = 0
 
@@ -60,6 +66,8 @@ def simulate(start_capital, winrate, lavrage, trade, pos_size, br_trade):
                 max_loss_streak = loss_streak
 
         daily_pnls.append(day_pnl)
+        equity_curve.append(start_capital)
+
         if day_pnl > 0:
             green += 1
         else:
@@ -74,6 +82,7 @@ def simulate(start_capital, winrate, lavrage, trade, pos_size, br_trade):
     min_day_pnl = min(daily_pnls)
 
     stats = {
+
         "capital": start_capital,
         "win_cnt": win_cnt,
         "loss_cnt": loss_cnt,
@@ -85,7 +94,63 @@ def simulate(start_capital, winrate, lavrage, trade, pos_size, br_trade):
         "red": red,
         "max_day_pnl": max_day_pnl,
         "min_day_pnl": min_day_pnl,
-    }
-    return stats
 
-print(simulate(start_capital, winrate, lavrage, trade, pos_size, br_trade))
+    }
+    print(stats)
+    return stats, equity_curve
+
+
+def monteCarlo(n):
+    results = []
+    all_paths = []
+    for i in range(n):
+        stats, paths = simulate(start_capital)
+        results.append(stats)
+        all_paths.append(paths)
+
+    return results, np.array(all_paths)
+
+def main():
+    n = 1000
+    results, paths = monteCarlo(n)
+    last_x = len(paths[0]) - 1
+
+    plt.figure(figsize=(10, 6))
+    colors = plt.cm.Blues(np.linspace(0.3, 1, n))
+
+    final_capitals = [p[-1] for p in paths]
+
+    mean_path = np.mean(paths, axis=0)
+    median_path = np.median(paths, axis=0)
+    mean_final = np.mean(final_capitals)
+    median_final = np.median(final_capitals)
+
+    for i, s in enumerate(paths):
+        plt.plot(s, linewidth=1, color=colors[i], alpha=0.7)
+
+    plt.plot(mean_path, color="#BA3CE1", linewidth=2, label="Prosek kriva")
+    plt.axhline(start_capital, color="red", linestyle="--", linewidth=2, label="Pocetni kapital")
+    plt.plot(median_path, color="#EF8D0D", linewidth=2, label="Mediana kriva")
+    plt.title(f"Simulacija balansa — {n} simulacija")
+    plt.xlabel("Dani")
+    plt.ylabel("Balans ($)")
+    plt.grid(True, linestyle='--', linewidth=0.6)
+    plt.tight_layout()
+    plt.xlim(0, br_day)
+    plt.scatter(last_x, mean_final, color="purple", s=50, label=f"Prosek: {mean_final:.2f}")
+    plt.scatter(last_x, median_final, color="orange", s=50, label=f"Mediana: {median_final:.2f}")
+    plt.legend()
+
+    plt.show()
+
+    df = pd.DataFrame(results)  # napravi tabelu iz liste stats dict-ova
+    df_rounded = df.round(2)  # zaokruži sve numeričke kolone na 2 decimale
+
+    df_rounded.to_csv("stats.csv", index=False)  # export u CSV
+    print("Sačuvan u stats.csv")
+
+
+
+if __name__ == "__main__":
+    main()
+
