@@ -4,21 +4,22 @@ import pandas as pd
 
 from fontTools.misc.cython import returns
 from matplotlib import colors
+from matplotlib.colors import LogNorm
 from numpy.ma.extras import median
 
 #===========================
 #POCETNI PARAMETRI ZA TRADE
 #===========================
 
-start_capital = 30
-winrate = 0.4
+start_capital = 100
+winrate = 0.40
 lavrage = 0.25
 wp = (0.4 * lavrage, 0.95 * lavrage)
 lp = (0.2 * lavrage, 0.5 * lavrage)
 risk_precent = 0.15
-trade = 20
+trade = 10
 fee_rate = 0.0005
-br_day = 90
+br_day = 30
 br_trade_day = 10
 br_trade = br_trade_day * br_day
 
@@ -111,11 +112,11 @@ def monteCarlo(n):
     return results, np.array(all_paths)
 
 def main():
-    n = 1000
+    n = 5000
     results, paths = monteCarlo(n)
     last_x = len(paths[0]) - 1
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(11, 6))
     colors = plt.cm.Blues(np.linspace(0.3, 1, n))
 
     final_capitals = [p[-1] for p in paths]
@@ -124,6 +125,18 @@ def main():
     median_path = np.median(paths, axis=0)
     mean_final = np.mean(final_capitals)
     median_final = np.median(final_capitals)
+
+    num_paths, num_points = paths.shape
+    x = np.arange(num_points)
+    num_fine = num_points * 50
+
+    x_fine = np.linspace(x.min(), x.max(), num_fine)
+    # x_all = np.broadcast_to(x, (num_paths, num_points)).ravel()
+    y_all = paths.ravel()
+    y_fine = np.concatenate([np.interp(x_fine, x, row) for row in paths])
+    x_fine_all = np.broadcast_to(x_fine, (num_paths, num_fine)).ravel()
+
+    h, xedges, yedges = np.histogram2d(x_fine_all, y_fine, bins=[num_fine, 250])
 
     for i, s in enumerate(paths):
         plt.plot(s, linewidth=1, color=colors[i], alpha=0.7)
@@ -146,9 +159,25 @@ def main():
     df = pd.DataFrame(results)  # napravi tabelu iz liste stats dict-ova
     df_rounded = df.round(2)  # zaokruži sve numeričke kolone na 2 decimale
 
+    plt.clf()
+    plt.close()
+
+
+
+    plt.figure(figsize=(11, 6))
+    pcm = plt.pcolormesh(xedges, yedges, h.T, cmap="inferno", norm=LogNorm(vmin=1e0, vmax=150))
+    plt.title("Heatmap gustine - {n} simulacija}")
+    plt.axhline(start_capital, color="black", linestyle="--", linewidth=2, label="Pocetni kapital")
+    plt.xlabel("Dani")
+    plt.ylabel("Balans ($)")
+    plt.tight_layout()
+    plt.grid(True, linestyle='--', linewidth=0.6)
+    plt.xlim(0, br_day)
+
+    plt.show()
+
     df_rounded.to_csv("stats.csv", index=False)  # export u CSV
     print("Sačuvan u stats.csv")
-
 
 
 if __name__ == "__main__":
