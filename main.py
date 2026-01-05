@@ -12,20 +12,19 @@ from numpy.ma.extras import median
 #===========================
 
 start_capital = 100
-winrate = 0.40
-lavrage = 0.25
-wp = (0.4 * lavrage, 0.95 * lavrage)
-lp = (0.2 * lavrage, 0.5 * lavrage)
-risk_precent = 0.15
-trade = 10
-fee_rate = 0.0005
-br_day = 30
-br_trade_day = 10
+winrate = 0.7
+lavrage = 0.50
+wp = (0.4 * lavrage, 0.48 * lavrage)
+lp = (0.36 * lavrage, 0.42 * lavrage)
+risk_precent = 0.25
+br_day = 180
+br_trade_day = 2
 br_trade = br_trade_day * br_day
 
-pos_size = trade * lavrage
+#pos_size = trade * lavrage
 
 def simulate(start_capital):
+    global fee, risk_precent
     win_cnt = 0
     loss_cnt = 0
     win_streak = 0
@@ -35,16 +34,19 @@ def simulate(start_capital):
     day_pnl = 0
     green = 0
     red = 0
-
+    total_fee = 0
     daily_pnls = []
     equity_curve = [start_capital]
+    daily_fees = []
 
     i = 0
 
     while i < br_day:
+
         for j in range (0, br_trade_day):
             trade = risk_precent * start_capital
             win = np.random.rand() < winrate
+
             if win:
                 pnl_gross = trade + trade * np.random.uniform(*wp)
                 win_cnt +=1
@@ -56,10 +58,11 @@ def simulate(start_capital):
                 pnl_gross = trade - trade * np.random.uniform(*lp)
                 loss_streak +=1
 
-            fee = trade * fee_rate
+            fee = ((trade * (lavrage * 100)) * 0.0005) * 2.06
             pnl = (pnl_gross - trade) - fee
             start_capital += pnl
             day_pnl += pnl
+            total_fee += fee
 
             if win_streak > max_win_streak:
                 max_win_streak = win_streak
@@ -68,6 +71,7 @@ def simulate(start_capital):
 
         daily_pnls.append(day_pnl)
         equity_curve.append(start_capital)
+        daily_fees.append(total_fee)
 
         if day_pnl > 0:
             green += 1
@@ -95,6 +99,7 @@ def simulate(start_capital):
         "red": red,
         "max_day_pnl": max_day_pnl,
         "min_day_pnl": min_day_pnl,
+        "total_fee": total_fee,
 
     }
     print(stats)
@@ -112,7 +117,7 @@ def monteCarlo(n):
     return results, np.array(all_paths)
 
 def main():
-    n = 5000
+    n = 2000
     results, paths = monteCarlo(n)
     last_x = len(paths[0]) - 1
 
