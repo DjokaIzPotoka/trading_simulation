@@ -3,13 +3,6 @@ from .params import Params
 
 
 def generate_outcomes(n_trades: int, rng: np.random.Generator, p: Params):
-    """
-    Returns:
-      - pnl_multipliers: array length n_trades
-        For model "uniform": multiplier is +/-factor where pnl = trade*multiplier - fee
-        For model "mixture_r": multiplier is R (R-multiple), pnl = trade*R - fee
-      - is_win: boolean array (True if multiplier > 0), used for streaks/win_cnt
-    """
     model = p.outcome_model.lower().strip()
 
     if model == "uniform":
@@ -38,14 +31,6 @@ def _uniform_model(n_trades: int, rng: np.random.Generator, p: Params):
 
 
 def _mixture_r_model(n_trades: int, rng: np.random.Generator, p: Params):
-    """
-    Mixture distribution over R-multiples:
-      - p_full_loss: R = -1.0
-      - p_full_win : R = +1.0
-      - else normal:
-          win with p_win_base: R ~ Uniform(r_win_range)
-          loss otherwise     : R ~ -Uniform(r_loss_range)
-    """
     u = rng.random(n_trades)
 
     R = np.empty(n_trades, dtype=float)

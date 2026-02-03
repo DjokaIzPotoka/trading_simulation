@@ -82,3 +82,75 @@ def plot_withdraw_histogram(df: pd.DataFrame, zoom_percentiles=(5, 95)):
     plt.legend()
     plt.show()
 
+def plot_profit_mean_median(equity_paths: np.ndarray,
+                            withdraw_paths: np.ndarray,
+                            p: Params,
+                            n_total: int,
+                            seed: int | None):
+    """
+    Profit(t) = equity(t) + cum_withdraw(t) - start_capital
+    Plot samo mean i median krivu (bez svih simulacija).
+    """
+    profit_paths = equity_paths + withdraw_paths - p.start_capital
+
+    T = profit_paths.shape[1]
+    x = np.arange(T)
+
+    mean_path = np.mean(profit_paths, axis=0)
+    median_path = np.median(profit_paths, axis=0)
+
+    mean_final = float(mean_path[-1])
+    median_final = float(median_path[-1])
+
+    plt.figure(figsize=(11, 6))
+
+    plt.plot(x, mean_path, color=MEAN_COLOR, linewidth=2.8, label="Prosek (mean) profit kriva")
+    plt.plot(x, median_path, color=MEDIAN_COLOR, linewidth=2.8, label="Mediana profit kriva")
+
+    plt.axhline(0.0, color=START_COLOR, linestyle="--", linewidth=2, label="Breakeven (0)")
+
+    plt.scatter(T - 1, mean_final, color=MEAN_COLOR, s=70, label=f"Mean final profit: {mean_final:.2f}")
+    plt.scatter(T - 1, median_final, color=MEDIAN_COLOR, s=70, label=f"Median final profit: {median_final:.2f}")
+
+    seed_txt = "random" if seed is None else str(seed)
+    plt.title(f"Profit kroz vreme (mean/median) — {n_total} simulacija (seed={seed_txt}) | model={p.outcome_model}")
+    plt.xlabel("Dani")
+    plt.ylabel("Profit ($)")
+    plt.grid(True, linestyle="--", linewidth=0.6)
+    plt.xlim(0, p.br_day)
+    plt.tight_layout()
+    plt.legend()
+    plt.show()
+
+
+
+def plot_monthly_withdraw_bars(mean_by_month: np.ndarray, median_by_month: np.ndarray):
+    """
+    Bar chart:
+      x = mesec (30-dnevni blok)
+      y = withdraw ($)
+      2 stuba po mesecu: mean i median
+    """
+    mean_by_month = np.asarray(mean_by_month, dtype=float)
+    median_by_month = np.asarray(median_by_month, dtype=float)
+
+    n_months = mean_by_month.size
+    x = np.arange(1, n_months + 1)  # 1..n
+    w = 0.35
+
+    plt.figure(figsize=(11, 6))
+    plt.bar(x - w/2, mean_by_month, width=w, alpha=0.85, label="Mean monthly withdraw")
+    plt.bar(x + w/2, median_by_month, width=w, alpha=0.85, label="Median monthly withdraw")
+
+    plt.title("Monthly Withdraw po mesecima (30-dnevni blokovi)")
+    plt.xlabel("Mesec (blok od 30 dana)")
+    plt.ylabel("Withdraw ($)")
+    plt.xticks(x)
+    plt.grid(True, linestyle="--", linewidth=0.6, axis="y")
+    plt.tight_layout()
+    plt.legend()
+    plt.show()
+
+
+
+

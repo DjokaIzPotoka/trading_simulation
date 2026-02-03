@@ -2,7 +2,7 @@ import numpy as np
 from .params import Params
 from .mechanics import calc_fee
 from .outcomes import generate_outcomes
-
+from .risk import drawdown_stats
 
 def simulate_one(rng: np.random.Generator, p: Params):
     capital = float(p.start_capital)
@@ -20,7 +20,11 @@ def simulate_one(rng: np.random.Generator, p: Params):
 
     total_fee = 0.0
     total_withdraw = 0.0
-    monthly_withdraws = []
+    withdraw_events = []
+
+    withdraw_curve = np.zeros(p.br_day + 1, dtype=float)
+    cum_withdraw = 0.0
+    withdraw_curve[0] = 0.0
 
     daily_pnls = np.zeros(p.br_day, dtype=float)
     equity_curve = np.zeros(p.br_day + 1, dtype=float)
@@ -60,25 +64,34 @@ def simulate_one(rng: np.random.Generator, p: Params):
             t += 1
 
         daily_pnls[day] = day_pnl
-        equity_curve[day + 1] = capital
 
         if day_pnl > 0:
             green_days += 1
         else:
             red_days += 1
 
-        # Month boundary withdraw
-        if (day + 1) % p.withdraw_every_days == 0:
-            if capital >= p.withdraw_target:
-                excess = capital - p.withdraw_target
+        # === EVENT-BASED WITHDRAW (daily check) ===
+        if p.withdraw_mode == "event":
+            if capital >= p.withdraw_trigger:
+                excess = capital - p.withdraw_reset
                 total_withdraw += excess
-                monthly_withdraws.append(excess)
-                capital = p.withdraw_target
-                equity_curve[day + 1] = capital
-            else:
-                monthly_withdraws.append(0.0)
+                cum_withdraw += excess
+                withdraw_events.append((day, excess))
+                capital = p.withdraw_reset
+
+        equity_curve[day + 1] = capital
+        withdraw_curve[day + 1] = cum_withdraw
 
     profit = total_withdraw + (capital - p.start_capital)
+
+    max_dd_abs, max_dd_pct, max_dd_dur, min_equity = drawdown_stats(equity_curve)
+
+    ruin_below_50 = int(min_equity < 50.0)
+    ruin_below_20 = int(min_equity < 20.0)
+    ruin_below_0  = int(min_equity < 0.0)
+
+    months = max(1.0, p.br_day / 30.0)
+    avg_monthly_withdraw_sim = total_withdraw / months
 
     stats = {
         "final_capital": float(capital),
@@ -95,13 +108,26 @@ def simulate_one(rng: np.random.Generator, p: Params):
         "max_day_pnl": float(daily_pnls.max()),
         "min_day_pnl": float(daily_pnls.min()),
 
+        "min_equity": float(min_equity),
+        "max_dd_abs": float(max_dd_abs),
+        "max_dd_pct": float(max_dd_pct),
+        "max_dd_duration": int(max_dd_dur),
+
+        "ruin_below_50": int(ruin_below_50),
+        "ruin_below_20": int(ruin_below_20),
+        "ruin_below_0": int(ruin_below_0),
+
         "total_fee": float(total_fee),
 
         "total_withdraw": float(total_withdraw),
         "profit": float(profit),
 
-        "avg_monthly_withdraw_sim": float(np.mean(monthly_withdraws)) if monthly_withdraws else 0.0,
-        "median_monthly_withdraw_sim": float(np.median(monthly_withdraws)) if monthly_withdraws else 0.0,
+        "avg_withdraw_event": float(np.mean(withdraw_events)) if withdraw_events else 0.0,
+        "median_withdraw_event": float(np.median(withdraw_events)) if withdraw_events else 0.0,
+        "withdraw_event_count": int(len(withdraw_events)),
+        "avg_monthly_withdraw_sim": float(avg_monthly_withdraw_sim),
+        "median_monthly_withdraw_sim": 0.0,
+
     }
 
-    return stats, equity_curve, np.array(monthly_withdraws, dtype=float)
+    return stats, equity_curve, withdraw_curve, np.array(withdraw_events, dtype=object)

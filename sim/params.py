@@ -20,27 +20,32 @@ class Params:
     withdraw_every_days: int = 30
     withdraw_target: float = 2000.0
 
+    # ===== event-based withdraw =====
+    withdraw_mode: str = "event"
+
+    withdraw_trigger: float = 5000.0
+    withdraw_reset: float = 2000.0
+
+
     # plotting
     plot_paths_max: int = 800
 
     # ===== outcome model selection =====
-    # "uniform" = tvoj trenutni model (winrate + uniform ranges)
-    # "mixture_r" = realistic scenario model (tail +/-1R + normal R distribution)
+
     outcome_model: str = "uniform"
 
-    # ===== uniform model params (tvoj trenutni) =====
+    # ===== uniform model params
     winrate: float = 0.67
-    wp_base: tuple = (0.6, 0.7)  # multiplied by leverage
-    lp_base: tuple = (0.6, 0.7)  # multiplied by leverage
+    wp_base: tuple = (0.6, 0.7)
+    lp_base: tuple = (0.6, 0.7)
 
-    # ===== mixture R-multiple model params (novi) =====
-    # Tail events: % trades that are full -1R or +1R
-    p_full_loss: float = 0.005   # 0.5% trades -> -1.0R
-    p_full_win: float = 0.002    # 0.2% trades -> +1.0R
+    # ===== mixture R-multiple model params
+    p_full_loss: float = 0.005
+    p_full_win: float = 0.002
 
-    # For normal trades (when not tail), chance of win
+    # For normal trades
     p_win_base: float = 0.67
 
-    # Normal R ranges (in units of "risk" = trade size)
-    r_win_range: tuple = (0.20, 0.35)   # +0.20R .. +0.35R
-    r_loss_range: tuple = (0.20, 0.35)  # -0.20R .. -0.35R
+    # Normal R ranges
+    r_win_range: tuple = (0.20, 0.35)
+    r_loss_range: tuple = (0.20, 0.35)
